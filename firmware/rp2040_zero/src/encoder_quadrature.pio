@@ -1,0 +1,60 @@
+.program encoder_quadrature
+.origin 0
+; Jump table index: previous_AB << 2 | current_AB.
+; Valid x4 transitions change X by one. Same and two-bit transitions are ignored.
+    jmp no_change ; 00 -> 00
+    jmp increment ; 00 -> 01
+    jmp decrement ; 00 -> 10
+    jmp invalid    ; 00 -> 11
+    jmp decrement ; 01 -> 00
+    jmp no_change ; 01 -> 01
+    jmp invalid    ; 01 -> 10
+    jmp increment ; 01 -> 11
+    jmp increment ; 10 -> 00
+    jmp invalid    ; 10 -> 01
+    jmp no_change ; 10 -> 10
+    jmp decrement ; 10 -> 11
+    jmp invalid    ; 11 -> 00
+    jmp decrement ; 11 -> 01
+    jmp increment ; 11 -> 10
+    jmp no_change ; 11 -> 11
+
+public sample:
+    mov isr, null
+    in pins, 2
+    mov y, isr
+decode:
+    mov isr, y
+    in pins, 2
+    mov osr, isr
+    out pc, 4
+increment:
+    mov x, !x
+    jmp x-- increment_done
+increment_done:
+    mov x, !x
+    jmp sample
+decrement:
+    jmp x-- sample
+    jmp sample
+invalid:
+no_change:
+    jmp sample
+
+% c-sdk {
+static inline void encoder_quadrature_program_init(PIO pio, uint sm,
+                                                    uint offset, uint pin_a) {
+    pio_sm_config config = encoder_quadrature_program_get_default_config(offset);
+    sm_config_set_in_pins(&config, pin_a);
+    sm_config_set_in_shift(&config, false, false, 32);
+    sm_config_set_out_shift(&config, true, false, 32);
+    gpio_pull_up(pin_a);
+    gpio_pull_up(pin_a + 1);
+    pio_gpio_init(pio, pin_a);
+    pio_gpio_init(pio, pin_a + 1);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_a, 2, false);
+    pio_sm_init(pio, sm, offset + encoder_quadrature_offset_sample, &config);
+    pio_sm_exec(pio, sm, pio_encode_set(pio_x, 0));
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

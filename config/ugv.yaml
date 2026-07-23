@@ -1,0 +1,12 @@
+ugv_control_node:
+  ros__parameters:
+    cmd_vel_topic: /cmd_vel
+
+    # TBD: measured center-to-center distance between the left and right tracks.
+    track_width_m: 0.0
+
+    # TBD: effective drive sprocket radius used to convert m/s to output-shaft rad/s.
+    drive_sprocket_radius_m: 0.0
+
+    # Safe default. Enable only after the real USB CDC backend and safety path exist.
+    enable_mcu_commands: false
