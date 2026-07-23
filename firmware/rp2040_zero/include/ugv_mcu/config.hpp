@@ -4,25 +4,22 @@
 
 namespace ugv_mcu::config {
 
-constexpr int kGpioTbd = -1; // 핀설정 아직 안되어있음
-
 struct MotorPins { int pwm; int dir; };
 struct EncoderPins { int a; int b; };
 struct PidGains { float kp; float ki; float kd; float integral_limit; };
 enum class MotorStopMode { kTbd, kCoast, kBrake };
 
-// Hardware mapping: all values intentionally TBD.
-constexpr MotorPins kLeftMotorPins{kGpioTbd, kGpioTbd};
-constexpr MotorPins kRightMotorPins{kGpioTbd, kGpioTbd};
-constexpr EncoderPins kLeftEncoderPins{kGpioTbd, kGpioTbd};
-constexpr EncoderPins kRightEncoderPins{kGpioTbd, kGpioTbd};
+constexpr MotorPins kLeftMotorPins{6, 7};
+constexpr MotorPins kRightMotorPins{14, 15};
+constexpr EncoderPins kLeftEncoderPins{2, 3};
+constexpr EncoderPins kRightEncoderPins{4, 5};
 
 // Explicit master interlock. Keep false until wiring and direction are verified.
 constexpr bool kHardwareOutputEnabled = false;
-constexpr bool kLeftMotorInverted = false;    // TBD
-constexpr bool kRightMotorInverted = false;   // TBD
-constexpr bool kLeftEncoderInverted = false;  // TBD
-constexpr bool kRightEncoderInverted = false; // TBD
+constexpr bool kLeftMotorInverted = false;
+constexpr bool kRightMotorInverted = false;
+constexpr bool kLeftEncoderInverted = false;
+constexpr bool kRightEncoderInverted = true;
 constexpr MotorStopMode kMotorStopMode = MotorStopMode::kTbd;
 
 // Zero means unconfigured/TBD and prevents closed-loop drive activation.

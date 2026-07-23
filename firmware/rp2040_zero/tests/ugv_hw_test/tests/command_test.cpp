@@ -28,4 +28,22 @@ int main() {
     if (result.accepted) ++accepted;
   }
   assert(accepted == 2 && command.mode == Mode::kSim);
+
+  CommandReceiver carriage_receiver;
+  const std::string carriage_input = "MODE,MOTOR\r";
+  accepted = 0;
+  for (char byte : carriage_input) {
+    const auto result = carriage_receiver.push(byte, command);
+    if (result.accepted) ++accepted;
+  }
+  assert(accepted == 1 && command.mode == Mode::kMotor);
+
+  CommandReceiver crlf_receiver;
+  const std::string crlf_input = "STATUS\r\n";
+  accepted = 0;
+  for (char byte : crlf_input) {
+    const auto result = crlf_receiver.push(byte, command);
+    if (result.accepted) ++accepted;
+  }
+  assert(accepted == 1 && command.type == CommandType::kStatus);
 }

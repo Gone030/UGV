@@ -18,6 +18,8 @@ MotorCommandPlan plan_motor_command(float command, bool enabled, bool inverted);
 class MotorDriver {
  public:
   MotorDriver(config::MotorPins pins, bool inverted);
+  MotorDriver(config::MotorPins pins, bool inverted, bool hardware_output_enabled,
+              std::uint32_t pwm_frequency_hz, config::MotorStopMode stop_mode);
   bool initialize();
   void set_enabled(bool enabled);
   void set_output(float signed_command);
@@ -30,6 +32,9 @@ class MotorDriver {
  private:
   config::MotorPins pins_;
   bool inverted_{};
+  bool hardware_output_enabled_{};
+  std::uint32_t pwm_frequency_hz_{};
+  config::MotorStopMode stop_mode_{config::MotorStopMode::kTbd};
   bool initialized_{};
   bool enabled_{};
   bool hardware_active_{};

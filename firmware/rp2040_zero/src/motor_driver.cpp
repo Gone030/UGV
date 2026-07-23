@@ -7,12 +7,24 @@
 #include "hardware/pwm.h"
 
 namespace ugv_mcu {
-MotorDriver::MotorDriver(config::MotorPins pins, bool inverted) : pins_(pins), inverted_(inverted) {}
+MotorDriver::MotorDriver(config::MotorPins pins, bool inverted)
+    : MotorDriver(pins, inverted, config::kHardwareOutputEnabled,
+                  config::kPwmFrequencyHz, config::kMotorStopMode) {}
+
+MotorDriver::MotorDriver(config::MotorPins pins, bool inverted,
+                         bool hardware_output_enabled,
+                         std::uint32_t pwm_frequency_hz,
+                         config::MotorStopMode stop_mode)
+    : pins_(pins),
+      inverted_(inverted),
+      hardware_output_enabled_(hardware_output_enabled),
+      pwm_frequency_hz_(pwm_frequency_hz),
+      stop_mode_(stop_mode) {}
 
 bool MotorDriver::initialize() {
   initialized_ = true; enabled_ = false; commanded_output_ = 0.0F;
-  hardware_active_ = config::kHardwareOutputEnabled && config::gpio_valid(pins_.pwm) &&
-                     config::gpio_valid(pins_.dir) && config::kPwmFrequencyHz > 0;
+  hardware_active_ = hardware_output_enabled_ && config::gpio_valid(pins_.pwm) &&
+                     config::gpio_valid(pins_.dir) && pwm_frequency_hz_ > 0;
   if (!hardware_active_) return false;  // Deliberate safe stub; no GPIO touched.
   gpio_init(static_cast<unsigned>(pins_.dir));
   gpio_set_dir(static_cast<unsigned>(pins_.dir), GPIO_OUT);
@@ -20,9 +32,9 @@ bool MotorDriver::initialize() {
   gpio_set_function(static_cast<unsigned>(pins_.pwm), GPIO_FUNC_PWM);
   const unsigned slice = pwm_gpio_to_slice_num(static_cast<unsigned>(pins_.pwm));
   const float system_hz = static_cast<float>(clock_get_hz(clk_sys));
-  float divider = system_hz / (static_cast<float>(config::kPwmFrequencyHz) * 65536.0F);
+  float divider = system_hz / (static_cast<float>(pwm_frequency_hz_) * 65536.0F);
   divider = std::clamp(divider, 1.0F, 255.0F);
-  const float wrap = system_hz / (static_cast<float>(config::kPwmFrequencyHz) * divider) - 1.0F;
+  const float wrap = system_hz / (static_cast<float>(pwm_frequency_hz_) * divider) - 1.0F;
   if (!(wrap >= 1.0F && wrap <= 65535.0F)) { hardware_active_ = false; return true; }
   pwm_wrap_ = static_cast<std::uint16_t>(wrap);
   pwm_set_clkdiv(slice, divider);
@@ -49,7 +61,7 @@ bool MotorDriver::try_set_output(float command) {
 void MotorDriver::stop() {
   commanded_output_ = 0.0F;
   if (hardware_active_) pwm_set_gpio_level(static_cast<unsigned>(pins_.pwm), 0);
-  apply_stop_policy(config::kMotorStopMode);
+  apply_stop_policy(stop_mode_);
 }
 
 void MotorDriver::apply_stop_policy(config::MotorStopMode mode) {

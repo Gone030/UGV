@@ -105,13 +105,12 @@ const char* error_name(CommandError error) {
 }
 
 FeedResult CommandReceiver::push(char byte, Command& output) {
-  if (byte != '\n') {
-    if (byte != '\r') {
-      if (size_ < buffer_.size() - 1) buffer_[size_++] = byte;
-      else overflow_ = true;
-    }
+  if (byte != '\n' && byte != '\r') {
+    if (size_ < buffer_.size() - 1) buffer_[size_++] = byte;
+    else overflow_ = true;
     return {};
   }
+  if (size_ == 0 && !overflow_) return {};
   if (overflow_) { reset(); return {true, false, CommandError::kOverflow}; }
   buffer_[size_] = '\0';
   const auto error = parse_command({buffer_.data(), size_}, output);

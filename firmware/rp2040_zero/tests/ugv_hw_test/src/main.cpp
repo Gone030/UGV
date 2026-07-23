@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
@@ -21,6 +22,10 @@ constexpr std::uint32_t kTestWatchdogTimeoutMs = 1'000;
 constexpr std::uint32_t kTestSimulationCountsPerRev = 4'096;
 constexpr ugv_mcu::config::EncoderPins kTestLeftEncoderPins{2, 3};
 constexpr ugv_mcu::config::EncoderPins kTestRightEncoderPins{4, 5};
+constexpr ugv_mcu::config::MotorPins kTestLeftMotorPins{6, 7};
+constexpr ugv_mcu::config::MotorPins kTestRightMotorPins{14, 15};
+constexpr std::uint32_t kTestPwmFrequencyHz = 20'000;
+constexpr float kTestMaxPhysicalDuty = 0.10F;
 constexpr ugv_mcu::config::PidGains kTestSimulationPid{0.25F, 0.05F, 0.0F, 1.0F};
 constexpr double kTwoPi = 6.28318530717958647692;
 
@@ -62,8 +67,10 @@ int main() {
   using namespace ugv_hw_test;
   stdio_init_all();
 
-  MotorDriver left_motor(config::kLeftMotorPins, config::kLeftMotorInverted);
-  MotorDriver right_motor(config::kRightMotorPins, config::kRightMotorInverted);
+  MotorDriver left_motor(kTestLeftMotorPins, config::kLeftMotorInverted, true,
+                         kTestPwmFrequencyHz, config::MotorStopMode::kCoast);
+  MotorDriver right_motor(kTestRightMotorPins, config::kRightMotorInverted, true,
+                          kTestPwmFrequencyHz, config::MotorStopMode::kCoast);
   left_motor.initialize(); right_motor.initialize();
   left_motor.stop(); right_motor.stop();
 
@@ -85,6 +92,7 @@ int main() {
   Mode mode = Mode::kEncoder;
   bool enabled = false;
   bool watchdog_active = false;
+  bool command_watchdog_armed = false;
   float left_request = 0.0F, right_request = 0.0F;
   float left_feedback = 0.0F, right_feedback = 0.0F;
   float left_output = 0.0F, right_output = 0.0F;
@@ -98,6 +106,7 @@ int main() {
     left_motor.set_enabled(false); right_motor.set_enabled(false);
     left_motor.stop(); right_motor.stop();
     left_controller.reset(); right_controller.reset(); watchdog.disarm();
+    command_watchdog_armed = false;
     state.request_enable(false, true);
   };
 
@@ -122,7 +131,8 @@ int main() {
                 left_pio.hardware_active(), right_pio.hardware_active());
   };
 
-  std::printf("TEST,BOOT,enabled=0,hardware_output=%u\n", config::kHardwareOutputEnabled);
+  std::printf("TEST,BOOT,enabled=0,test_motor_output=1,max_duty=%.6g\n",
+              kTestMaxPhysicalDuty);
 
   while (true) {
     int ch;
@@ -144,7 +154,8 @@ int main() {
           if (!command.enable) { disable(); watchdog_active = false; std::printf("TEST,%s,DISABLED\n", mode_name(mode)); break; }
           enabled = state.request_enable(true, true);
           watchdog_active = false;
-          watchdog.arm(to_ms_since_boot(get_absolute_time()));
+          watchdog.disarm();
+          command_watchdog_armed = false;
           left_motor.set_enabled(mode == Mode::kMotor && enabled);
           right_motor.set_enabled(mode == Mode::kMotor && enabled);
           std::printf("TEST,%s,ENABLE,%u,physical_output=%u\n", mode_name(mode), enabled,
@@ -158,17 +169,25 @@ int main() {
           if (command.type == CommandType::kMotorRight) right_request = command.left;
           if (command.type == CommandType::kMotorBoth) right_request = command.right;
           if (mode == Mode::kMotor) {
-            const auto left_plan = plan_motor_command(left_request, true, config::kLeftMotorInverted);
-            const auto right_plan = plan_motor_command(right_request, true, config::kRightMotorInverted);
+            const float left_physical =
+                std::clamp(left_request, -kTestMaxPhysicalDuty, kTestMaxPhysicalDuty);
+            const float right_physical =
+                std::clamp(right_request, -kTestMaxPhysicalDuty, kTestMaxPhysicalDuty);
+            const auto left_plan =
+                plan_motor_command(left_physical, true, config::kLeftMotorInverted);
+            const auto right_plan =
+                plan_motor_command(right_physical, true, config::kRightMotorInverted);
             if (!left_plan.accepted || !right_plan.accepted) { disable(); std::printf("ERROR,MOTOR_RANGE\n"); break; }
             left_output = left_plan.signed_output; right_output = right_plan.signed_output;
-            left_motor.try_set_output(left_request); right_motor.try_set_output(right_request);
+            left_motor.try_set_output(left_physical); right_motor.try_set_output(right_physical);
             std::printf("TEST,MOTOR,L,dir=%u,duty=%.6g,R,dir=%u,duty=%.6g,physical=%u\n",
                         left_plan.direction_forward, left_plan.duty,
                         right_plan.direction_forward, right_plan.duty,
                         left_motor.hardware_active() && right_motor.hardware_active());
           }
-          watchdog.arm(to_ms_since_boot(get_absolute_time())); watchdog_active = false;
+          watchdog.arm(to_ms_since_boot(get_absolute_time()));
+          command_watchdog_armed = true;
+          watchdog_active = false;
           break;
         }
         case CommandType::kSimSpeed:
@@ -180,7 +199,7 @@ int main() {
     }
 
     const std::uint64_t now_us = time_us_64();
-    if (enabled && watchdog.expired(now_us / 1000U)) {
+    if (enabled && command_watchdog_armed && watchdog.expired(now_us / 1000U)) {
       disable(); watchdog_active = true; state.watchdog_stop();
       std::printf("ERROR,WATCHDOG_TIMEOUT\n");
     }
