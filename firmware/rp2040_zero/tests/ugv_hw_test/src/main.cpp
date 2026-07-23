@@ -19,6 +19,8 @@ constexpr std::uint32_t kTestLoopPeriodUs = 10'000;
 constexpr std::uint32_t kTestStatusPeriodMs = 250;
 constexpr std::uint32_t kTestWatchdogTimeoutMs = 1'000;
 constexpr std::uint32_t kTestSimulationCountsPerRev = 4'096;
+constexpr ugv_mcu::config::EncoderPins kTestLeftEncoderPins{2, 3};
+constexpr ugv_mcu::config::EncoderPins kTestRightEncoderPins{4, 5};
 constexpr ugv_mcu::config::PidGains kTestSimulationPid{0.25F, 0.05F, 0.0F, 1.0F};
 constexpr double kTwoPi = 6.28318530717958647692;
 
@@ -65,8 +67,8 @@ int main() {
   left_motor.initialize(); right_motor.initialize();
   left_motor.stop(); right_motor.stop();
 
-  EncoderPioBackend left_pio(config::kLeftEncoderPins, pio0);
-  EncoderPioBackend right_pio(config::kRightEncoderPins, pio1);
+  EncoderPioBackend left_pio(kTestLeftEncoderPins, pio0);
+  EncoderPioBackend right_pio(kTestRightEncoderPins, pio1);
   Encoder left_encoder(left_pio, config::kLeftEncoderInverted);
   Encoder right_encoder(right_pio, config::kRightEncoderInverted);
   left_encoder.initialize(); right_encoder.initialize();

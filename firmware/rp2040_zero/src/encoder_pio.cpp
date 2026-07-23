@@ -29,11 +29,14 @@ bool EncoderPioBackend::initialize() {
 std::int64_t EncoderPioBackend::count() const {
   if (!hardware_active_) return 0;
   const unsigned sm = static_cast<unsigned>(state_machine_);
-  // Freeze for two injected instructions so the running decoder cannot overwrite ISR.
+  // Freeze while copying X through ISR into the RX FIFO.
   pio_sm_set_enabled(pio_, sm, false);
   pio_sm_exec(pio_, sm, pio_encode_mov(pio_isr, pio_x));
   pio_sm_exec(pio_, sm, pio_encode_push(false, true));
   const std::uint32_t raw = pio_sm_get_blocking(pio_, sm);
+  pio_sm_exec(
+      pio_, sm,
+      pio_encode_jmp(program_offset_ + encoder_quadrature_offset_sample));
   pio_sm_set_enabled(pio_, sm, true);
   if (!have_raw_count_) {
     previous_raw_count_ = raw;

@@ -26,7 +26,7 @@ constexpr bool kRightEncoderInverted = false; // TBD
 constexpr MotorStopMode kMotorStopMode = MotorStopMode::kTbd;
 
 // Zero means unconfigured/TBD and prevents closed-loop drive activation.
-constexpr std::uint32_t kEncoderCountsPerOutputRevolution = 0;
+constexpr std::uint32_t kEncoderCountsPerOutputRevolution = 617;
 constexpr std::uint32_t kPwmFrequencyHz = 0;
 constexpr std::uint32_t kControlPeriodUs = 0;
 constexpr std::uint32_t kStatusPeriodMs = 0;
