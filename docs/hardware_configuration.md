@@ -17,7 +17,7 @@ The platform is a small tracked UGV using two Raspberry Pi 4 Model B computers a
 | Compute #2 | Raspberry Pi 4 Model B | 1 | External/manual command input, side-sensor processing, local safety and command arbitration | Confirmed |
 | Side depth | Intel RealSense D435 | 2 | Left/right obstacle and clearance assistance | Confirmed |
 | Range sensor | LiDAR | 1 | Obstacle/range sensing for Pi #2 | Model and interface TBD |
-| Low-level controller | MCU | 1 | Motor control, encoder acquisition, command timeout stop | Board/model TBD |
+| Low-level controller | Waveshare RP2040-Zero | 1 | Motor control, encoder acquisition, command timeout stop | Confirmed |
 | USB distribution | POWERLAN PL-UH305P powered USB 3.0 hub | 1 | Connect D435 x2 and LiDAR to Pi #2 | Confirmed; final modified wiring 검토 필요 |
 
 The PL-UH305P external dimensions are `100 x 45 x 20 mm`. Its original adapter is rated at 5 V, 3 A. The planned supply is the 5 V rail from the D24V90F5. Before permanent modification, PCB polarity and the absence of upstream VBUS backfeed must be verified on the actual unit. If a VBUS-cut upstream cable is used, USB ground, USB 2.0 data, USB 3.x SuperSpeed pairs, and shield continuity must be preserved.
@@ -48,7 +48,21 @@ M2
 - `VCC`, `GND`: Hall encoder supply.
 - `H1`, `H2`: quadrature Hall signals; the A/B naming may be assigned in software and direction corrected after testing.
 - Encoder supply voltage: begin verification at 3.3 V; final supported range is `TBD` pending authoritative documentation or measurement.
-- Encoder counts per revolution and counting convention: `TBD`.
+- Encoder counting convention: x4 quadrature decoding.
+- Encoder counts per output-shaft revolution: `617`.
+
+### 4.2 RP2040-Zero GPIO assignment
+
+| Function | GPIO | Status |
+|---|---:|---|
+| Left motor PWM | 6 | Confirmed |
+| Left motor DIR | 7 | Confirmed |
+| Right motor PWM | 14 | Confirmed |
+| Right motor DIR | 15 | Confirmed |
+| Left encoder A/B | 2 / 3 | Confirmed |
+| Right encoder A/B | 4 / 5 | Confirmed |
+
+The PIO encoder backend requires each B pin to be the GPIO immediately following its A pin. The configured pin pairs satisfy this requirement. Encoder and motor direction polarity must still be checked against the final mechanical installation before enabling production motor output.
 
 ## 5. Power architecture
 
@@ -95,10 +109,10 @@ For both Pololu converters, `EN`, `PG`, and auxiliary pins are not required for 
 
 ## 7. Open hardware decisions
 
-1. Exact MCU board and logic voltage.
+1. Final verification of the RP2040-Zero logic voltage against the connected encoder and motor-driver inputs.
 2. Exact LiDAR model, interface, power consumption, and mounting.
 3. Battery capacity/C-rating, fuse ratings, cutoff thresholds, and emergency-stop hardware.
-4. Encoder voltage range, pulse count, direction convention, and connector type.
+4. Encoder voltage range, final direction convention, and connector type.
 5. Final power injection and upstream VBUS/backfeed treatment for the PL-UH305P.
 6. Connector family, harness pinout, wire gauges, strain relief, and environmental protection.
 7. DFR1208 housing and mounting details.

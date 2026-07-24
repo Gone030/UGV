@@ -28,7 +28,7 @@ Connected devices:
 
 - Left and right Intel RealSense D435 cameras through a powered USB 3.0 hub.
 - LiDAR through the powered hub or a direct interface; exact connection is `TBD`.
-- MCU through USB; exact protocol is `TBD`.
+- RP2040-Zero through USB CDC using the versioned, CRC-16-protected line-oriented ASCII protocol.
 - External operator input such as keyboard, joystick, or another control source.
 
 Responsibilities:
@@ -133,9 +133,9 @@ Lower safety layers may reject or override a higher-layer motion request. A high
 ## 6. Interfaces to define
 
 1. Pi #1 <-> Pi #2 transport, ROS domain/network configuration, messages, QoS, and heartbeat.
-2. Pi #2 <-> MCU physical interface and protocol. USB serial is planned but not finalized.
-3. Command representation: `geometry_msgs/Twist`, left/right wheel velocity, or another custom message.
-4. Feedback ownership: raw ticks, wheel RPM, MCU odometry, and/or Pi #2 odometry.
+2. Pi #2 <-> MCU serial-port discovery and sequence freshness/replay policy. The physical transport is USB CDC and the current wire format is the versioned, CRC-16-protected line-oriented ASCII protocol; reconnect is handled by the ROS bridge.
+3. ROS 2 receives `geometry_msgs/Twist`; Pi #2 converts it to left/right output-shaft angular velocity in rad/s before sending the MCU command.
+4. The MCU owns encoder acquisition and wheel-speed PID. Returned wheel velocity and state are reserved for monitoring and future odometry.
 5. Command publication rate, MCU control rate, watchdog timeout, and stale-data policy.
 6. Sensor frames, TF tree, timestamps, synchronization, and calibration procedure.
 7. Placement of global planning between Pi #1 and Pi #2 after performance measurement.

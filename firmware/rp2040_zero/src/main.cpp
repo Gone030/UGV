@@ -75,7 +75,7 @@ int main() {
       status.left_measured_rad_s = left_encoder.velocity_rad_s(); status.right_measured_rad_s = right_encoder.velocity_rad_s();
       status.left_encoder_count = left_encoder.count(); status.right_encoder_count = right_encoder.count();
       status.left_pwm = left_motor.commanded_output(); status.right_pwm = right_motor.commanded_output();
-      char line[256]; const auto length = serialize_status(status, line, sizeof(line));
+      char line[256]; const auto length = serialize_status(status, line, sizeof(line), true);
       if (length) std::fwrite(line, 1, length, stdout);
       next_status_us = now_us + static_cast<std::uint64_t>(config::kStatusPeriodMs) * 1000U;
     }

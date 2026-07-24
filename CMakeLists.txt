@@ -17,11 +17,21 @@ add_executable(ugv_control_node
   src/track_kinematics.cpp
   src/serial_bridge.cpp
 )
+target_compile_features(ugv_control_node PRIVATE cxx_std_17)
 target_include_directories(ugv_control_node PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-ament_target_dependencies(ugv_control_node rclcpp geometry_msgs)
+ament_target_dependencies(ugv_control_node rclcpp std_msgs geometry_msgs)
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(serial_protocol_test tests/serial_protocol_test.cpp src/serial_bridge.cpp)
+  if(TARGET serial_protocol_test)
+    target_compile_features(serial_protocol_test PRIVATE cxx_std_17)
+    target_include_directories(serial_protocol_test PRIVATE include)
+  endif()
+endif()
 
 install(TARGETS ugv_control_node
   DESTINATION lib/${PROJECT_NAME}

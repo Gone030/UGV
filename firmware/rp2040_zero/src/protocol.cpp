@@ -30,7 +30,7 @@ bool parse_float(const char* text, float& value) {
 
 bool checksum_valid(char* line) {
   char* marker = std::strrchr(line, '*');
-  if (!marker) return true;
+  if (!marker) return false;
   if (std::strlen(marker + 1) != 4) return false;
   char* end = nullptr;
   const unsigned long expected = std::strtoul(marker + 1, &end, 16);
@@ -84,10 +84,16 @@ ParseError parse_command_line(std::string_view line, float max_abs_target_rad_s,
   if (candidate.protocol_version != kProtocolVersion) return ParseError::kBadVersion;
   if (enable > 1) return ParseError::kBadEnable;
   candidate.enable = enable == 1;
-  if (!(max_abs_target_rad_s > 0.0F) ||
-      std::fabs(candidate.left_target_rad_s) > max_abs_target_rad_s ||
-      std::fabs(candidate.right_target_rad_s) > max_abs_target_rad_s)
+  if (!candidate.enable) {
+    if (candidate.left_target_rad_s != 0.0F ||
+        candidate.right_target_rad_s != 0.0F) {
+      return ParseError::kOutOfRange;
+    }
+  } else if (!(max_abs_target_rad_s > 0.0F) ||
+             std::fabs(candidate.left_target_rad_s) > max_abs_target_rad_s ||
+             std::fabs(candidate.right_target_rad_s) > max_abs_target_rad_s) {
     return ParseError::kOutOfRange;
+  }
   output = candidate;  // Commit only after every field has been validated.
   return ParseError::kNone;
 }

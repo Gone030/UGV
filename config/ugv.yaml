@@ -1,6 +1,16 @@
 ugv_control_node:
   ros__parameters:
     cmd_vel_topic: /cmd_vel
+    mcu_state_topic: /ugv/mcu_state
+
+    # Raspberry Pi default. On macOS set this to /dev/cu.usbmodem... .
+    serial_device: /dev/ttyACM0
+    serial_baud_rate: 115200
+    serial_reconnect_interval_ms: 1000
+
+    # A single disable/zero command is sent if an enabled command becomes stale.
+    # The MCU watchdog remains the final independent stop mechanism.
+    cmd_vel_timeout_ms: 500
 
     # TBD: measured center-to-center distance between the left and right tracks.
     track_width_m: 0.0
@@ -8,5 +18,5 @@ ugv_control_node:
     # TBD: effective drive sprocket radius used to convert m/s to output-shaft rad/s.
     drive_sprocket_radius_m: 0.0
 
-    # Safe default. Enable only after the real USB CDC backend and safety path exist.
+    # Safe default. CDC status reception works while motor commands remain disabled.
     enable_mcu_commands: false

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 
 namespace ugv {
 
@@ -29,8 +30,13 @@ struct McuStatus {
   double right_pwm{};
 };
 
-// Transport boundary for the future real USB CDC implementation. The concrete
-// backend will own device open/close, reconnect, framing, parsing and I/O.
+struct SerialBridgeConfig {
+  std::string device{"/dev/ttyACM0"};
+  std::uint32_t baud_rate{115200};
+  std::uint32_t reconnect_interval_ms{1000};
+  bool require_crc{true};
+};
+
 class SerialBridge {
  public:
   virtual ~SerialBridge() = default;
@@ -39,7 +45,11 @@ class SerialBridge {
   virtual std::optional<McuStatus> poll_status() = 0;
 };
 
-// Current safe backend: performs no device I/O and never reports success.
+std::string serialize_command(const WheelVelocityCommand& command, bool append_crc = true);
+std::optional<McuStatus> parse_status_line(const std::string& line, bool require_crc = true);
+std::string serialize_status_message(const McuStatus& status);
+
+std::unique_ptr<SerialBridge> make_usb_cdc_serial_bridge(const SerialBridgeConfig& config);
 std::unique_ptr<SerialBridge> make_null_serial_bridge();
 
 }  // namespace ugv

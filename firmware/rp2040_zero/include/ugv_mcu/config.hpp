@@ -22,8 +22,9 @@ constexpr bool kLeftEncoderInverted = false;
 constexpr bool kRightEncoderInverted = true;
 constexpr MotorStopMode kMotorStopMode = MotorStopMode::kTbd;
 
-// Zero means unconfigured/TBD and prevents closed-loop drive activation.
+// The x4-decoded count measured at the output shaft is confirmed.
 constexpr std::uint32_t kEncoderCountsPerOutputRevolution = 617;
+// Zero means unconfigured/TBD and prevents closed-loop drive activation.
 constexpr std::uint32_t kPwmFrequencyHz = 0;
 constexpr std::uint32_t kControlPeriodUs = 0;
 constexpr std::uint32_t kStatusPeriodMs = 0;

@@ -4,7 +4,7 @@
 
 이 디렉터리에는 ROS를 사용하지 않는 저수준 구동 제어기용 C++/Pico SDK 펌웨어 스켈레톤이 들어 있습니다. USB CDC 줄 단위 프레이밍, 명령 검증, 상태 직렬화, 모터·엔코더·PID·watchdog 인터페이스, 보수적인 상태 머신을 구현합니다. micro-ROS와 Raspberry Pi용 ROS 2 브리지는 포함하지 않습니다.
 
-실제 모터 출력은 기본적으로 비활성화되어 있습니다. GPIO 값은 `-1`, 시간 및 제어기 설정값은 `0` 또는 TBD이며 `kHardwareOutputEnabled`는 `false`입니다. 필요한 설정을 명시적으로 모두 완료하기 전에는 펌웨어가 구동 활성 상태로 진입할 수 없습니다.
+실제 모터 출력은 기본적으로 비활성화되어 있습니다. GPIO와 출력축 엔코더 CPR은 확정되어 있지만, 시간 및 제어기 설정값은 `0` 또는 TBD이며 `kHardwareOutputEnabled`는 `false`입니다. 필요한 설정을 명시적으로 모두 완료하기 전에는 production 펌웨어가 구동 활성 상태로 진입할 수 없습니다.
 
 ## Pi와 RP2040의 책임 분리
 
@@ -36,34 +36,39 @@ c++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude \
 
 ## 설정 위치와 TBD 항목
 
-모든 하드웨어 의존 설정은 `include/ugv_mcu/config.hpp`에 있습니다. 다음 항목은 아직 TBD입니다.
+모든 하드웨어 의존 설정은 `include/ugv_mcu/config.hpp`에 있습니다. 현재 확정된 설정은 다음과 같습니다.
 
-- 모터용 GPIO 4개
-- 엔코더용 GPIO 4개
-- 출력축 1회전당 엔코더 count와 계수 기준
+- 왼쪽 모터: PWM GPIO 6, DIR GPIO 7
+- 오른쪽 모터: PWM GPIO 14, DIR GPIO 15
+- 왼쪽 엔코더: A GPIO 2, B GPIO 3
+- 오른쪽 엔코더: A GPIO 4, B GPIO 5
+- x4 quadrature decoding 기준 출력축 1회전당 엔코더 count: 617
+
+다음 항목은 아직 TBD입니다.
+
 - PWM 주파수
 - 제어 주기와 상태 전송 주기
 - watchdog timeout
 - 좌우 PID 게인과 적분 제한
-- 모터 및 엔코더 방향 반전
+- 모터 및 엔코더 방향 반전의 최종 검증
 - 최대 목표 각속도
 - 가속도 제한
 - coast/brake 정지 방식
 - 비상정지 reset 및 해제 조건
 - 향후 GPIO interrupt 엔코더 backend 추가 필요 여부
 
-현재 PIO backend에서는 각 엔코더의 B 핀이 A 핀 바로 다음 번호여야 합니다. 즉, `B == A + 1` 조건을 만족해야 합니다. GPIO가 미정이거나 이 조건을 만족하지 않으면 엔코더 backend는 GPIO를 초기화하지 않고 안전 stub로 동작합니다.
+현재 PIO backend에서는 각 엔코더의 B 핀이 A 핀 바로 다음 번호여야 합니다. 현재 설정된 `2/3`, `4/5` 핀 쌍은 `B == A + 1` 조건을 만족합니다. GPIO가 유효하지 않거나 이 조건을 만족하지 않으면 엔코더 backend는 GPIO를 초기화하지 않고 안전 stub로 동작합니다.
 
 ## ASCII 프로토콜
 
 각 패킷은 줄바꿈 문자로 끝납니다. 파서는 나뉘어 수신된 입력과 한 번에 연속으로 수신된 여러 줄을 모두 처리합니다. 프로토콜 버전 `1`, sequence 번호, 유한수 여부, enable 값, 필드 개수, 목표값 범위를 검증합니다. 선택 사항인 `*HHHH` CRC-16/CCITT suffix도 지원합니다. 따라서 향후 프로토콜 버전에서 CRC를 필수화하더라도 상위 제어 코드와 wire parser를 직접 결합할 필요가 없습니다.
 
 ```text
-CMD,1,42,1,3.5,3.5
-STATE,1,42,1,0,0,3.5,3.5,3.4,3.6,1024,1031,0.42,0.45
+CMD,1,42,1,3.5,3.5*2031
+STATE,1,42,1,0,0,3.5,3.5,3.4,3.6,1024,1031,0.42,0.45*C855
 ```
 
-형식 오류, NaN/Infinity, 잘못된 버전, 범위 초과 명령은 마지막 유효 명령을 덮어쓰지 않습니다. 이전 명령 내용과 관계없이 watchdog timeout이 발생하면 양쪽 모터 출력을 비활성화하고 두 목표값을 0으로 만듭니다. Sequence freshness 및 replay 처리 정책은 Pi/MCU 통합 단계의 TBD 항목입니다.
+Production 통신에서는 CRC-16/CCITT suffix가 필수입니다. CRC 누락·불일치, 형식 오류, NaN/Infinity, 잘못된 버전, 범위 초과 명령은 마지막 유효 명령을 덮어쓰지 않습니다. 이전 명령 내용과 관계없이 watchdog timeout이 발생하면 양쪽 모터 출력을 비활성화하고 두 목표값을 0으로 만듭니다. Sequence는 Pi가 증가시키는 송신 명령 번호이며 MCU의 `STATE.sequence`는 마지막으로 적용한 명령 번호를 반환합니다. Sequence freshness 및 replay 거부 정책은 실기 통합 단계에서 추가 검증합니다.
 
 ## 실모터 연결 전 테스트 순서
 

@@ -9,16 +9,34 @@
 int main() {
   using namespace ugv_mcu;
   CommandPacket command{};
-  assert(parse_command_line("CMD,1,42,1,3.5,3.5", 10.0F, command) == ParseError::kNone);
+  auto with_crc = [](const std::string& payload) {
+    char suffix[8];
+    std::snprintf(suffix, sizeof(suffix), "*%04X", crc16_ccitt(payload));
+    return payload + suffix;
+  };
+  assert(parse_command_line(with_crc("CMD,1,42,1,3.5,3.5"), 10.0F, command) ==
+         ParseError::kNone);
   assert(command.sequence == 42 && command.enable && command.left_target_rad_s == 3.5F);
   const CommandPacket previous = command;
-  assert(parse_command_line("CMD,1,43,1,nan,2", 10.0F, command) == ParseError::kBadNumber);
+  assert(parse_command_line(with_crc("CMD,1,43,1,nan,2"), 10.0F, command) ==
+         ParseError::kBadNumber);
   assert(command.sequence == previous.sequence); // Rejected data is not committed.
-  assert(parse_command_line("CMD,2,43,1,1,1", 10.0F, command) == ParseError::kBadVersion);
-  assert(parse_command_line("CMD,1,43,1,11,1", 10.0F, command) == ParseError::kOutOfRange);
+  assert(parse_command_line(with_crc("CMD,2,43,1,1,1"), 10.0F, command) ==
+         ParseError::kBadVersion);
+  assert(parse_command_line(with_crc("CMD,1,43,1,11,1"), 10.0F, command) ==
+         ParseError::kOutOfRange);
+  assert(parse_command_line("CMD,1,43,1,1,1", 10.0F, command) ==
+         ParseError::kBadChecksum);
+  assert(parse_command_line(with_crc("CMD,1,44,0,0,0"), 0.0F, command) ==
+         ParseError::kNone);
+  assert(parse_command_line(with_crc("CMD,1,45,0,1,0"), 0.0F, command) ==
+         ParseError::kOutOfRange);
+  assert(parse_command_line(with_crc("CMD,1,46,1,1,0"), 0.0F, command) ==
+         ParseError::kOutOfRange);
 
   LineProtocolReceiver receiver;
-  const std::string stream = "CMD,1,7,0,0,0\nCMD,1,8,1,2,-2\n";
+  const std::string stream =
+      with_crc("CMD,1,7,0,0,0") + "\n" + with_crc("CMD,1,8,1,2,-2") + "\n";
   int accepted = 0;
   for (char c : stream) { const auto r = receiver.push(c, 10.0F, command); if (r.accepted) ++accepted; }
   assert(accepted == 2 && command.sequence == 8);
@@ -29,12 +47,11 @@ int main() {
   status.left_encoder_count = 1024; status.right_encoder_count = 1031;
   status.left_pwm = 0.42F; status.right_pwm = 0.45F;
   char line[256];
-  assert(serialize_status(status, line, sizeof(line)) > 0);
+  assert(serialize_status(status, line, sizeof(line), true) > 0);
   assert(std::strstr(line, "STATE,1,42,1,0,0,3.5,3.5,3.4,3.6,1024,1031,0.42,0.45") == line);
+  assert(std::strchr(line, '*') != nullptr);
 
-  std::string checksummed = "CMD,1,99,1,1,-1";
-  char suffix[8]; std::snprintf(suffix, sizeof(suffix), "*%04X", crc16_ccitt(checksummed));
-  checksummed += suffix;
+  std::string checksummed = with_crc("CMD,1,99,1,1,-1");
   assert(parse_command_line(checksummed, 10.0F, command) == ParseError::kNone);
   checksummed.back() = checksummed.back() == '0' ? '1' : '0';
   assert(parse_command_line(checksummed, 10.0F, command) == ParseError::kBadChecksum);
